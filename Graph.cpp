@@ -228,7 +228,9 @@ bool Graph::HavelHakimi(const std::vector<int>& deg) {
 }
 
 std::pair<int, std::vector<int> > Graph::Prim() {
-	std::vector<int> cost(N_NODES + 1, 1e9);
+	const int MAX_COST = 1e9;
+
+	std::vector<int> cost(N_NODES + 1, MAX_COST);
 	std::vector<bool> used(N_NODES + 1, false);
 	std::vector<int> parent(N_NODES + 1, -1);
 
@@ -245,7 +247,8 @@ std::pair<int, std::vector<int> > Graph::Prim() {
 	while (!pq.empty()) {
 		int n = pq.top().node;
 		pq.pop();
-		if (used[n])continue;
+
+		if(used[n])continue;
 
 		used[n] = 1;
 		cmin += cost[n];
@@ -304,7 +307,9 @@ void Graph::DisjointSet(int n_nodes, const std::vector<std::pair<int, std::pair<
 }
 
 std::vector<int> Graph::Dijkstra(int start) {
-	std::vector<int> dist(N_NODES + 1, 1000000);
+	const int INF = -1;
+
+	std::vector<int> dist(N_NODES + 1, INF);
 	std::vector<bool> used(N_NODES + 1, false);
 	
 	struct Compare{
@@ -315,6 +320,7 @@ std::vector<int> Graph::Dijkstra(int start) {
 
 	dist[start] = 0;
 	pq.push({ start, 0 });
+
 	while (!pq.empty()) {
 		int n = pq.top().node;
 		pq.pop();
@@ -323,39 +329,42 @@ std::vector<int> Graph::Dijkstra(int start) {
 		used[n] = 1;
 		 
 		for (const Neighbour& x : la[n]) {
-			if (!used[x.node] && dist[n] + x.cost < dist[x.node]) {
+			if(used[x.node]) continue;
+
+			if (dist[x.node] == INF || ( !used[x.node] && dist[n] + x.cost < dist[x.node] ) ) {
 				dist[x.node] = dist[n] + x.cost;
 				pq.push({ x.node, dist[x.node] });
 			}
 		}
 	}
 	for (int& i : dist)
-		if (i == 1000000) i = 0;
+		if (i == INF) i = 0;
 
 	return dist;
 }
 
 std::vector<int> Graph::BellmanFord(int start) {
+	const int MAX_COST = 2e9;
 
 	std::vector<int> nodes_to_check;
 	std::vector<int> modified_nodes;
 	nodes_to_check.push_back(start);
 
 	std::vector<bool> used(N_NODES + 1, false); // used[i] = 1 ==> i in modified_nodes
-	std::vector<int> dist(N_NODES + 1, 1000000);
+	std::vector<int> dist(N_NODES + 1, MAX_COST);
 	dist[start] = 0;
- 
+
 	for (int i = 1; i <= N_NODES - 1 && !nodes_to_check.empty(); ++i) {
- 
+
 		std::fill(used.begin(), used.end(), false);
 
 		std::vector<int> modified_nodes;
 
-		for (const int& n : nodes_to_check){
-			for (const Neighbour& x : la[n]) 
-				if (dist[n] + x.cost < dist[x.node]) {
+		for (const int& n : nodes_to_check) {
+			for (const Neighbour& x : la[n])
+				if (dist[x.node] == MAX_COST || dist[n] + x.cost < dist[x.node]) {
 					dist[x.node] = dist[n] + x.cost;
-					
+
 					if (!used[x.node]) // if x.node not in modified_nodes
 					{
 						modified_nodes.push_back(x.node);
@@ -369,18 +378,12 @@ std::vector<int> Graph::BellmanFord(int start) {
 	//check neg cycle
 	for (int i = 1; i <= N_NODES; ++i)
 		for (const Neighbour& x : la[i])
-			if (dist[i] + x.cost < dist[x.node]) throw std::runtime_error("Ciclu negativ!");
+			if (dist[i] + x.cost < dist[x.node]) 
+				throw std::runtime_error("Ciclu negativ!");
 
 	return dist;
 }
-
-void print(const std::vector<int>& x) {
-	for (int i : x) {
-		std::cout << i << ' ';
-	}
-	std::cout << '\n';
-}
-
+ 
 int main(){
 
 	std::ifstream f("bellmanford.in");
@@ -397,16 +400,17 @@ int main(){
 		a.addEdge(x, y, c, 1);
 	}
 
-	try
-	{
+	try{
 		auto res = a.BellmanFord(1);
-		for (int i = 2; i <= N; ++i) {
+		for(int i=2;i<=N;++i)
 			g << res[i] << ' ';
-		}
-	}
-	catch (const std::exception& e)
-	{
+		
+	} 
+	catch (const std::exception& e){
 		g << e.what();
 	}
+		
+
+	
 	
 }
