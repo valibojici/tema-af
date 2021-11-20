@@ -22,20 +22,20 @@ private:
 	std::vector<Edge> edges;
 
 	const int N_NODES;
-	const int N_EDGES;
-	
+	int N_EDGES;
+
 	void KosarajuTopSortHelper(std::list<int>& nodes, int n, std::vector<bool>& used);
 	void KosarajuAddToComponent(int n, std::vector<bool>& used, std::vector<int>& component);
 
 	static int Find(int x, std::vector<int>& parent);
 	static void Union(int x, int y, std::vector<int>& parent, std::vector<int>& height);
 public:
-	Graph(int N, int M) : N_NODES(N), N_EDGES(M) { la.resize(N + 1); li.resize(N + 1); }
+	Graph(int N) : N_NODES(N), N_EDGES(0) { la.resize(N + 1); li.resize(N + 1); }
 	void getInfo();
-	void addEdge(int from, int to, int cost = 0,bool isDirected = 0);
-	
+	void addEdge(int from, int to, int cost = 0, bool isDirected = 0);
+
 	std::vector<int> BFS(int start); // distance from start 
-	int getComponentCount(); 
+	int getComponentCount();
 	std::vector<int> getTopologicalSort();
 	std::vector<std::vector<int> > Kosaraju(); // vector of SCP
 
@@ -43,18 +43,23 @@ public:
 	std::vector<int> Dijkstra(int start);
 	std::vector<int> BellmanFord(int start);
 
+	int MaxDist2Nodes();
+	std::vector<std::vector<int> > RoyFloyd();
+
 	static bool HavelHakimi(const std::vector<int>& deg); // bool if y/n
 	static void DisjointSet(int n_nodes, const std::vector<std::pair<int, std::pair<int, int> > >& info, std::ostream&); // "da" & "nu"
 };
 
 void Graph::addEdge(int from, int to, int cost, bool isDirected) {
+	N_EDGES++;
+
 	la[from].push_back({ to, cost });
-	li[to].push_back({ from, cost });
-	edges.push_back({ from, to, cost });
+	//li[to].push_back({ from, cost });
+	//edges.push_back({ from, to, cost });
 
 	if (!isDirected) {
 		la[to].push_back({ from, cost });
-		li[from].push_back({ to, cost });
+		//li[from].push_back({ to, cost });
 	}
 }
 
@@ -76,14 +81,14 @@ std::vector<int> Graph::BFS(int start) {
 			}
 		}
 	}
-	return std::vector<int>(dist.begin() + 1, dist.end());
+	return dist;
 }
 
 int Graph::getComponentCount() {
 	std::stack<int> st;
 	std::vector<bool> used(N_NODES + 1, false);
 	int count = 0;
-	
+
 	for (int i = 1; i <= N_NODES; ++i) {
 		if (!used[i]) {
 			count++;
@@ -94,7 +99,7 @@ int Graph::getComponentCount() {
 				int top = st.top();
 				st.pop();
 				used[top] = 1;
-				
+
 				for (const Neighbour& n : la[top])
 					if (!used[n.node]) st.push(n.node);
 			}
@@ -160,7 +165,7 @@ void Graph::KosarajuTopSortHelper(std::list<int>& nodes, int n, std::vector<bool
 	nodes.push_front(n);
 }
 
-void Graph::KosarajuAddToComponent(int n, std::vector<bool>& used, std::vector <int>&comp) {
+void Graph::KosarajuAddToComponent(int n, std::vector<bool>& used, std::vector <int>& comp) {
 	comp.push_back(n);
 	used[n] = 1;
 
@@ -170,8 +175,8 @@ void Graph::KosarajuAddToComponent(int n, std::vector<bool>& used, std::vector <
 	}
 }
 
-std::vector<std::vector<int> > Graph::Kosaraju(){
-	
+std::vector<std::vector<int> > Graph::Kosaraju() {
+
 	// part 1 (topological sort-ish)
 	std::list<int> nodes;
 	std::vector<bool> used(N_NODES + 1, false);
@@ -179,7 +184,7 @@ std::vector<std::vector<int> > Graph::Kosaraju(){
 		if (!used[i])
 			KosarajuTopSortHelper(nodes, i, used);
 	}
-	
+
 	// part 2
 	std::fill(used.begin(), used.end(), false);
 	std::vector<std::vector<int> > result;
@@ -205,7 +210,7 @@ bool Graph::HavelHakimi(const std::vector<int>& deg) {
 		if (i >= N)return false; // max deg = N - 1
 		degrees.push_back(i);
 	}
-	
+
 	if (sum & 1)return false; // M = sum deg / 2
 	if (sum / 2 > N * (N - 1) / 2)return false; // M <= N * (N-1) / 2
 
@@ -248,7 +253,7 @@ std::pair<int, std::vector<int> > Graph::Prim() {
 		int n = pq.top().node;
 		pq.pop();
 
-		if(used[n])continue;
+		if (used[n])continue;
 
 		used[n] = 1;
 		cmin += cost[n];
@@ -300,7 +305,7 @@ void Graph::DisjointSet(int n_nodes, const std::vector<std::pair<int, std::pair<
 		if (p.first == 1) { // Union
 			Graph::Union(x, y, parent, height);
 		}
-		else if(p.first == 2) { // Find
+		else if (p.first == 2) { // Find
 			out << (Graph::Find(x, parent) == Graph::Find(y, parent) ? "DA\n" : "NU\n");
 		}
 	}
@@ -311,9 +316,9 @@ std::vector<int> Graph::Dijkstra(int start) {
 
 	std::vector<int> dist(N_NODES + 1, INF);
 	std::vector<bool> used(N_NODES + 1, false);
-	
-	struct Compare{
-		bool operator()(const Neighbour & a, const Neighbour & b) { return a.cost > b.cost; }
+
+	struct Compare {
+		bool operator()(const Neighbour& a, const Neighbour& b) { return a.cost > b.cost; }
 	};
 
 	std::priority_queue<Neighbour, std::vector<Neighbour>, Compare> pq;
@@ -324,14 +329,14 @@ std::vector<int> Graph::Dijkstra(int start) {
 	while (!pq.empty()) {
 		int n = pq.top().node;
 		pq.pop();
-		 
+
 		if (used[n])continue;
 		used[n] = 1;
-		 
-		for (const Neighbour& x : la[n]) {
-			if(used[x.node]) continue;
 
-			if (dist[x.node] == INF || ( !used[x.node] && dist[n] + x.cost < dist[x.node] ) ) {
+		for (const Neighbour& x : la[n]) {
+			if (used[x.node]) continue;
+
+			if (dist[x.node] == INF || (!used[x.node] && dist[n] + x.cost < dist[x.node])) {
 				dist[x.node] = dist[n] + x.cost;
 				pq.push({ x.node, dist[x.node] });
 			}
@@ -378,39 +383,69 @@ std::vector<int> Graph::BellmanFord(int start) {
 	//check neg cycle
 	for (int i = 1; i <= N_NODES; ++i)
 		for (const Neighbour& x : la[i])
-			if (dist[i] + x.cost < dist[x.node]) 
+			if (dist[i] + x.cost < dist[x.node])
 				throw std::runtime_error("Ciclu negativ!");
 
 	return dist;
 }
- 
-int main(){
 
-	std::ifstream f("bellmanford.in");
-	std::ofstream g("bellmanford.out");
+int Graph::MaxDist2Nodes() {
+	std::vector<int> dist = BFS(1);
+	int idx_dMax = 1;
+	for (int i = 2; i <= N_NODES; ++i)
+		if (dist[i] > dist[idx_dMax]) idx_dMax = i;
 
-	int N = 0, M = 0;
-	f >> N >> M;
-	 
-	Graph a(N, M);
+	dist = BFS(idx_dMax);
+	
+	int dMax = 0;
+	for (int i : dist)
+		if (dMax < i) dMax = i;
 
-	for (int i = 0; i < M; ++i) {
+	return dMax + 1;
+}
+
+std::vector<std::vector<int> > Graph::RoyFloyd() {
+	const int INF = 1e9;
+
+	std::vector<std::vector<int> > mat;
+	mat.resize(N_NODES + 1, std::vector<int>(N_NODES + 1, INF));
+
+	for (int i = 1; i <= N_NODES; ++i)
+		for (const Neighbour& x : la[i])
+			mat[i][x.node] = x.cost;
+
+	for(int k=1;k<=N_NODES;k++)
+		for (int i = 1; i <= N_NODES; ++i) {
+			if (i == k)continue;
+
+			for (int j = 1; j <= N_NODES; ++j) {
+				if (j == i || j == k) continue;
+
+				if (mat[i][k] + mat[k][j] < mat[i][j]) 
+					mat[i][j] = mat[i][k] + mat[k][j];
+			}
+		}
+
+	for (auto& v : mat) {
+		for (int& i : v)
+			if (i == INF) i = 0;
+	}
+	return mat;
+}
+
+int main() {
+
+	std::ifstream f("darb.in");	
+	std::ofstream g("darb.out");
+	int N = 0;
+	f >> N;
+	Graph a(N);
+
+	for (int i = 0; i < N-1; ++i) {
 		int x, y, c;
-		f >> x >> y >> c;
-		a.addEdge(x, y, c, 1);
+		f >> x >> y;
+		a.addEdge(x, y);
 	}
 
-	try{
-		auto res = a.BellmanFord(1);
-		for(int i=2;i<=N;++i)
-			g << res[i] << ' ';
-		
-	} 
-	catch (const std::exception& e){
-		g << e.what();
-	}
-		
-
-	
-	
+	g << a.MaxDist2Nodes();
 }
