@@ -26,6 +26,7 @@ private:
 
 	void KosarajuTopSortHelper(std::list<int>& nodes, int n, std::vector<bool>& used);
 	void KosarajuAddToComponent(int n, std::vector<bool>& used, std::vector<int>& component);
+	std::vector<int> getMaxFlowHelperBFS(int start, int end, const std::vector<std::vector<int> >& cost); // parent vector
 
 	static int Find(int x, std::vector<int>& parent);
 	static void Union(int x, int y, std::vector<int>& parent, std::vector<int>& height);
@@ -45,6 +46,8 @@ public:
 
 	int MaxDist2Nodes();
 	std::vector<std::vector<int> > RoyFloyd();
+	int getMaxFlow(int start, int end);
+	 
 
 	static bool HavelHakimi(const std::vector<int>& deg); // bool if y/n
 	static void DisjointSet(int n_nodes, const std::vector<std::pair<int, std::pair<int, int> > >& info, std::ostream&); // "da" & "nu"
@@ -57,10 +60,10 @@ void Graph::addEdge(int from, int to, int cost, bool isDirected) {
 	//li[to].push_back({ from, cost });
 	//edges.push_back({ from, to, cost });
 
-	if (!isDirected) {
-		la[to].push_back({ from, cost });
-		//li[from].push_back({ to, cost });
-	}
+	//if (!isDirected) {
+	//	la[to].push_back({ from, cost });
+	//	//li[from].push_back({ to, cost });
+	//}
 }
 
 std::vector<int> Graph::BFS(int start) {
@@ -433,19 +436,100 @@ std::vector<std::vector<int> > Graph::RoyFloyd() {
 	return mat;
 }
 
-int main() {
+std::vector<int> Graph::getMaxFlowHelperBFS(int start, int end, const std::vector<std::vector<int> >& cost) {
+	std::queue<int> q;
+	std::vector<int> parent(N_NODES + 1, -1);
+	std::vector<bool> visited(N_NODES + 1, false);
+	bool done = false;
+	
+	q.push(start);
+	visited[start] = 1;
+	while (!q.empty() && !done) {
+		int n = q.front();
+		q.pop();
+ 
+		for (int i = 1; i <= N_NODES && !done; ++i)
+			if (cost[n][i] > 0 && !visited[i]) {
+				parent[i] = n;
 
-	std::ifstream f("darb.in");	
-	std::ofstream g("darb.out");
-	int N = 0;
-	f >> N;
-	Graph a(N);
+				if (i == end)done = true;
 
-	for (int i = 0; i < N-1; ++i) {
-		int x, y, c;
-		f >> x >> y;
-		a.addEdge(x, y);
+				visited[i] = 1;
+				q.push(i);
+			}
 	}
 
-	g << a.MaxDist2Nodes();
+	if (!done) return std::vector<int>();
+
+	return parent;
+}
+
+int Graph::getMaxFlow(int start, int end) {
+	const int MAX_FLOW = 1e9;
+
+	std::vector<std::vector<int> > cost;
+	cost.resize(N_NODES + 1, std::vector<int>(N_NODES + 1, 0));
+
+	int maxFlow = 0;
+
+	for (int i = 1; i <= N_NODES; ++i) {
+		for (const Neighbour& v : la[i]) {
+			cost[i][v.node] = v.cost;
+
+			// residual edge -> cost[v.node][i] = 0 
+		}
+	}
+
+	while (1) {
+		// get path from start to end
+		std::vector<int> parent = getMaxFlowHelperBFS(start, end, cost);
+
+		// if no path -> exit
+		if (parent.empty())break;
+
+		int current_node = end;
+		int flow = MAX_FLOW;
+
+		// find bottleneck flow in path
+		while (parent[current_node] != -1) {
+			if (flow > cost[parent[current_node]][current_node])
+				flow = cost[parent[current_node]][current_node];
+
+			current_node = parent[current_node];
+		}
+
+		// update global max flow
+		maxFlow += flow;
+
+		current_node = end;
+		// update cost 
+		while (parent[current_node] != -1) {
+			// out edge
+			cost[parent[current_node]][current_node] -= flow;
+
+			// residual edge
+			cost[current_node][parent[current_node]] += flow;
+
+			current_node = parent[current_node];
+		}
+	}
+	return maxFlow;
+}
+
+int main() {
+
+	std::ifstream f("maxflow.in");
+	std::ofstream g("maxflow.out");
+
+	int N, M;
+	f >> N >> M;
+	Graph a(N);
+
+	for (int i = 0; i < M; ++i) {
+		int x, y, c;
+		f >> x >> y >> c;
+		a.addEdge(x, y, c, 1);
+	}
+	
+	g << a.getMaxFlow(1, N);
 }
