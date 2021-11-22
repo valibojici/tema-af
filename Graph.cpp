@@ -57,13 +57,13 @@ void Graph::addEdge(int from, int to, int cost, bool isDirected) {
 	N_EDGES++;
 
 	la[from].push_back({ to, cost });
-	//li[to].push_back({ from, cost });
-	//edges.push_back({ from, to, cost });
+	li[to].push_back({ from, cost });
+	edges.push_back({ from, to, cost });
 
-	//if (!isDirected) {
-	//	la[to].push_back({ from, cost });
-	//	//li[from].push_back({ to, cost });
-	//}
+	if (!isDirected) {
+		la[to].push_back({ from, cost });
+		li[from].push_back({ to, cost });
+	}
 }
 
 std::vector<int> Graph::BFS(int start) {
