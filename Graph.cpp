@@ -355,7 +355,6 @@ std::vector<int> Graph::BellmanFord(int start) {
 	const int MAX_COST = 2e9;
 
 	std::vector<int> nodes_to_check;
-	std::vector<int> modified_nodes;
 	nodes_to_check.push_back(start);
 
 	std::vector<bool> used(N_NODES + 1, false); // used[i] = 1 ==> i in modified_nodes
