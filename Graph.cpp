@@ -5,6 +5,7 @@
 #include <stack>
 #include <list>
 #include <unordered_set>
+#include <map>
 
 class Graph {
 private:
@@ -27,7 +28,7 @@ private:
 
 	void KosarajuTopSortHelper(std::list<int>& nodes, int n, std::vector<bool>& used);
 	void KosarajuAddToComponent(int n, std::vector<bool>& used, std::vector<int>& component);
-	std::vector<int> getMaxFlowHelperBFS(int start, int end, const std::vector<std::vector<int> >& capac, const std::vector<std::unordered_set<int> >& la); // parent vector
+	static std::vector<int> getMaxFlowHelperBFS(int start, int end, const std::vector<std::vector<int> >& capac, const std::vector<std::unordered_set<int> >& la); // parent vector
 
 	static int Find(int x, std::vector<int>& parent);
 	static void Union(int x, int y, std::vector<int>& parent, std::vector<int>& height);
@@ -48,6 +49,7 @@ public:
 	int MaxDist2Nodes();
 	std::vector<std::vector<int> > RoyFloyd();
 	int getMaxFlow(int start, int end);
+	static void getMaxFlowBipartite(int N1, int N2, std::vector < std::pair<int, int> >& edges, int& maxFlow);
 
 
 	static bool HavelHakimi(const std::vector<int>& deg); // bool if y/n
@@ -58,7 +60,7 @@ void Graph::addEdge(int from, int to, int cost, bool isDirected) {
 	N_EDGES++;
 
 	la[from].push_back({ to, cost });
-	//li[to].push_back({ from, cost });
+	li[to].push_back({ from, cost });
 	//edges.push_back({ from, to, cost });
 
 	if (!isDirected) {
@@ -438,8 +440,8 @@ std::vector<std::vector<int> > Graph::RoyFloyd() {
 
 std::vector<int> Graph::getMaxFlowHelperBFS(int start, int end, const std::vector<std::vector<int> >& capac, const std::vector<std::unordered_set<int> >& la) {
 	std::queue<int> q;
-	std::vector<int> parent(N_NODES + 1, -1);
-	std::vector<bool> visited(N_NODES + 1, false);
+	std::vector<int> parent(la.size(), -1);
+	std::vector<bool> visited(la.size(), false);
 
 	q.push(start);
 	visited[start] = 1;
@@ -449,7 +451,7 @@ std::vector<int> Graph::getMaxFlowHelperBFS(int start, int end, const std::vecto
 
 		if (n == end)continue;
 
-		for (int i : la[n]) 
+		for (int i : la[n])
 			if (capac[n][i] > 0 && !visited[i]) {
 				parent[i] = n;
 				visited[i] = 1;
@@ -463,8 +465,6 @@ std::vector<int> Graph::getMaxFlowHelperBFS(int start, int end, const std::vecto
 }
 
 int Graph::getMaxFlow(int start, int end) {
-	//https://www.infoarena.ro/job_detail/2809204
-
 	const int INF = 1e9;
 
 	std::vector<std::unordered_set<int> > la_flow;
@@ -526,24 +526,154 @@ int Graph::getMaxFlow(int start, int end) {
 			}
 		}
 	}
-
 	return maxFlow;
 }
 
-int main() {
+void Graph::getMaxFlowBipartite(int N1, int N2, std::vector < std::pair<int, int> >& edges, int& maxFlow) {
 
-	std::ifstream f("maxflow.in");
-	std::ofstream g("maxflow.out");
+	// acceasi rezolvare ca la getMaxFlow doar ca acum adaug si muchiile intr-un vector
 
-	int N, M;
-	f >> N >> M;
-	Graph a(N);
+	const int INF = 1e9;
+	maxFlow = 0;
 
-	for (int i = 0; i < M; ++i) {
-		int x, y, c;
-		f >> x >> y >> c;
-		a.addEdge(x, y, c, 1);
+	const int source = N1 + N2 + 1;
+	const int dest = N1 + N2 + 2;
+	int total_nodes = N1 + N2 + 2;
+
+	std::vector<std::vector<int> > la_flow;
+	la_flow.resize(total_nodes + 1);
+
+	std::map<std::pair<int, int>, int> capac;
+
+	for (const auto& p : edges) {
+		int x = p.first;
+		int y = p.second + N1;
+
+		la_flow[x].push_back(y);
+		la_flow[y].push_back(x);
+		capac[{x, y}] = 1;
+		capac[{y, x}] = 0;
 	}
 
-	g << a.getMaxFlow(1, N);
+	for (int i = 1; i <= N1; ++i) {
+		la_flow[source].push_back(i);
+		la_flow[i].push_back(source);
+		capac[{source, i}] = 1;
+		capac[{i, source}] = 0;
+	}
+
+	for (int i = 1; i <= N2; ++i) {
+		la_flow[i + N1].push_back(dest);
+		la_flow[dest].push_back(i + N1);
+		capac[{i + N1, dest}] = 1;
+		capac[{dest, i + N1}] = 0;
+	}
+
+	edges.erase(edges.begin(), edges.end());
+
+	while (1) {
+		// get path from start to end
+		std::vector<int> parent(total_nodes + 1, -1);
+		std::vector<bool> used(total_nodes + 1, false);
+
+		// bfs to find path source - dest
+		std::queue<int> q;
+		q.push(source);
+		used[source] = 1;
+		while (!q.empty()) {
+			int n = q.front();
+			q.pop();
+			if (n == dest)continue;
+
+			for (int i : la_flow[n]) {
+				if (capac[{n, i}] == 1 && !used[i]) {
+					parent[i] = n;
+					used[i] = 1;
+					q.push(i);
+				}
+			}
+		}
+
+		// if no path -> exit
+		if (!used[dest])break;
+
+		for (int i : la_flow[dest]) {
+			if (!used[i])continue; // i not in bfs
+
+			int current_node = dest;
+			parent[dest] = i;
+
+			// bottleneck flow 0 or 1
+			int flow = 1;
+			while (parent[current_node] != -1) {
+				if (capac[{parent[current_node], current_node}] == 0) {
+					flow = 0;
+					break;
+				}
+				current_node = parent[current_node];
+			}
+
+			if (flow == 0)continue;
+
+			maxFlow++;
+
+			current_node = dest;
+			// update capacity
+			while (parent[current_node] != -1) {
+				int& par = parent[current_node];
+
+				capac[{par, current_node}] -= 1;
+				capac[{current_node, par}] += 1;
+				current_node = parent[current_node];
+			}
+
+		}
+	}
+
+	// return edges
+	for (int i = 1; i <= N1; ++i)
+		for (int j : la_flow[i])
+			if (j != source && capac[{i, j}] == 0) {
+				edges.push_back({ i, j - N1 });
+			}
+}
+
+// bfs https://infoarena.ro/job_detail/2789676
+// dfs https://infoarena.ro/job_detail/2789680
+// biconex = nu am facut
+// ctc https://infoarena.ro/job_detail/2790880
+// sortaret https://infoarena.ro/job_detail/2790888
+// havel hakimi - da, metoda in clasa
+// critical-connections-in-a-network = nu am facut
+// apm https://infoarena.ro/job_detail/2799654
+// disjoint https://infoarena.ro/job_detail/2793259
+// dijkstra https://infoarena.ro/job_detail/2799709
+// bellmanford https://infoarena.ro/job_detail/2807122
+// maxflow https://infoarena.ro/job_detail/2810858
+// royfloyd https://infoarena.ro/job_detail/2803900
+// darb https://infoarena.ro/job_detail/2803907
+// cuplaj 60 pct TLE https://infoarena.ro/job_detail/2810845
+
+int main() {
+	std::ifstream f("cuplaj.in");
+	std::ofstream g("cuplaj.out");
+	int N1, N2, M;
+
+	f >> N1 >> N2 >> M;
+
+	std::vector<std::pair<int, int> >edges;
+	edges.reserve(M);
+
+	for (int i = 0; i < M; ++i) {
+		int x, y;
+		f >> x >> y;
+		edges.push_back({ x,y });
+	}
+
+	int maxflow = 0;
+	Graph::getMaxFlowBipartite(N1, N2, edges, maxflow);
+	g << maxflow << '\n';
+	for (auto& p : edges) {
+		g << p.first << ' ' << p.second << '\n';
+	}
 }
