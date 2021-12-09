@@ -1,3 +1,7 @@
+## Profil infoarena
+
+https://www.infoarena.ro/utilizator/vali_27
+
 ## Tema 1
 
 bfs https://infoarena.ro/job_detail/2789676
