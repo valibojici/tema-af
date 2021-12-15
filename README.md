@@ -43,7 +43,7 @@ darb https://infoarena.ro/job_detail/2803907
 
 cuplaj 60 pct TLE https://infoarena.ro/job_detail/2810845
 
-ciclueuler = inca nu am facut
+ciclueuler 50 pct TLE https://www.infoarena.ro/job_detail/2818119
 
-hamilton = inca nu am facut
+hamilton = nu am facut
 
