@@ -5,7 +5,7 @@
 #include <stack>
 #include <list>
 #include <unordered_set>
-#include <map>
+#include <unordered_map>
 
 class Graph {
 private:
@@ -28,6 +28,9 @@ private:
 
 	void KosarajuTopSortHelper(std::list<int>& nodes, int n, std::vector<bool>& used);
 	void KosarajuAddToComponent(int n, std::vector<bool>& used, std::vector<int>& component);
+
+	bool isEuler();
+	
 	static std::vector<int> getMaxFlowHelperBFS(int start, int end, const std::vector<std::vector<int> >& capac, const std::vector<std::unordered_set<int> >& la); // parent vector
 
 	static int Find(int x, std::vector<int>& parent);
@@ -49,9 +52,10 @@ public:
 	int MaxDist2Nodes();
 	std::vector<std::vector<int> > RoyFloyd();
 	int getMaxFlow(int start, int end);
+
+	std::vector<int> eulerCycle();
+
 	static void getMaxFlowBipartite(int N1, int N2, std::vector < std::pair<int, int> >& edges, int& maxFlow);
-
-
 	static bool HavelHakimi(const std::vector<int>& deg); // bool if y/n
 	static void DisjointSet(int n_nodes, const std::vector<std::pair<int, std::pair<int, int> > >& info, std::ostream&); // "da" & "nu"
 };
@@ -60,12 +64,12 @@ void Graph::addEdge(int from, int to, int cost, bool isDirected) {
 	N_EDGES++;
 
 	la[from].push_back({ to, cost });
-	li[to].push_back({ from, cost });
+	//li[to].push_back({ from, cost });
 	//edges.push_back({ from, to, cost });
 
 	if (!isDirected) {
 		la[to].push_back({ from, cost });
-		li[from].push_back({ to, cost });
+		//li[from].push_back({ to, cost });
 	}
 }
 
@@ -543,8 +547,17 @@ void Graph::getMaxFlowBipartite(int N1, int N2, std::vector < std::pair<int, int
 	std::vector<std::vector<int> > la_flow;
 	la_flow.resize(total_nodes + 1);
 
-	std::map<std::pair<int, int>, int> capac;
+	// https://stackoverflow.com/questions/32685540/why-cant-i-compile-an-unordered-map-with-a-pair-as-key
+	// hash unordered map 
+	struct Pair_hash {
+		size_t operator()(const std::pair<int,int>& a) const {
+			return (1ULL * a.first * 698237239333) + a.second;
+		}
+	};
 
+	std::unordered_map<std::pair<int, int>, int, Pair_hash> capac;
+
+	// la/capac N1 -> N2
 	for (const auto& p : edges) {
 		int x = p.first;
 		int y = p.second + N1;
@@ -555,6 +568,7 @@ void Graph::getMaxFlowBipartite(int N1, int N2, std::vector < std::pair<int, int
 		capac[{y, x}] = 0;
 	}
 
+	// la/capac source -> N1
 	for (int i = 1; i <= N1; ++i) {
 		la_flow[source].push_back(i);
 		la_flow[i].push_back(source);
@@ -562,6 +576,7 @@ void Graph::getMaxFlowBipartite(int N1, int N2, std::vector < std::pair<int, int
 		capac[{i, source}] = 0;
 	}
 
+	// la/capac N2 -> dest
 	for (int i = 1; i <= N2; ++i) {
 		la_flow[i + N1].push_back(dest);
 		la_flow[dest].push_back(i + N1);
@@ -569,8 +584,7 @@ void Graph::getMaxFlowBipartite(int N1, int N2, std::vector < std::pair<int, int
 		capac[{dest, i + N1}] = 0;
 	}
 
-	edges.erase(edges.begin(), edges.end());
-
+	// bfs
 	while (1) {
 		// get path from start to end
 		std::vector<int> parent(total_nodes + 1, -1);
@@ -631,11 +645,94 @@ void Graph::getMaxFlowBipartite(int N1, int N2, std::vector < std::pair<int, int
 	}
 
 	// return edges
+	edges.erase(edges.begin(), edges.end());
 	for (int i = 1; i <= N1; ++i)
 		for (int j : la_flow[i])
 			if (j != source && capac[{i, j}] == 0) {
 				edges.push_back({ i, j - N1 });
 			}
+}
+
+bool Graph::isEuler() {
+	for (int i = 1; i <= N_NODES; ++i) {
+		if (la[i].size() & 1)
+			return false;
+	}
+
+	auto dist = BFS(1);
+	for (int i = 1; i <= N_NODES; ++i)
+		if (dist[i] == -1)
+			return false;
+ 
+	return true;
+}
+
+std::vector<int> Graph::eulerCycle() {
+	if (!isEuler()) {
+		throw std::runtime_error("-1");
+	}
+
+	using iPair = std::pair<int, int>;
+
+	// https://stackoverflow.com/questions/32685540/why-cant-i-compile-an-unordered-map-with-a-pair-as-key
+	// hash unordered map 
+	struct Pair_hash {
+		size_t operator()(const iPair& a) const {
+			//return (std::hash<int>()(a.first) ^ (std::hash<int>()(a.second) >> 1));
+			return (1ULL * a.first * 698237239333) + a.second;
+		}
+	};
+
+	// count edges
+	std::unordered_map<iPair, int, Pair_hash> edges;
+	for (int i = 1; i <= N_NODES; ++i)
+		for (const Neighbour& x : la[i])
+			edges[{std::min(i,x.node), std::max(i,x.node)}]++;
+
+
+	// dfs
+	std::stack<int> s;
+	std::vector<int> cycle;
+	auto la_copy = la; // la copy
+	cycle.reserve(N_EDGES);
+
+	/* pseudocod pt ce e mai jos 
+		dfs(i) = 
+			for neighbour of i
+				if edge[i,neighbour] not used 
+					then dfs(neighbour)
+			add i to cycle
+	*/
+
+	s.push(1);
+	while (!s.empty()) {
+		int top = s.top();
+		s.pop();
+
+		bool found_neighbour = false;
+
+		// iau primul vecin disponibil
+		while (la_copy[top].size() && !found_neighbour) {
+			int i = la_copy[top].back().node;
+			la_copy[top].pop_back();
+
+			const int& p1 = std::min(top, i);
+			const int& p2 = std::max(top, i);
+
+			if (edges[{p1, p2}] > 0) {
+				found_neighbour = true;
+				edges[{p1, p2}] -= 2;
+
+				s.push(top); // ca sa continui cu ceilalti vecini
+				s.push(i);
+			}
+		}
+
+		if (!found_neighbour) {
+			cycle.push_back(top);
+		}
+	}
+	return cycle;
 }
 
 // bfs https://infoarena.ro/job_detail/2789676
@@ -653,6 +750,8 @@ void Graph::getMaxFlowBipartite(int N1, int N2, std::vector < std::pair<int, int
 // royfloyd https://infoarena.ro/job_detail/2803900
 // darb https://infoarena.ro/job_detail/2803907
 // cuplaj 60 pct TLE https://infoarena.ro/job_detail/2810845
+// ciclueuler 50 pct TLE https://www.infoarena.ro/job_detail/2818119
+// hamilton nu am facut
 
 int main() {
 	std::ifstream f("cuplaj.in");
